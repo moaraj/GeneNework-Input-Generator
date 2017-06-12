@@ -1,0 +1,146 @@
+---
+title: "Gene Network Generation Script"
+output: html_document
+---
+Load utility functions and modules
+```{r}
+library(tidyverse)
+library(reshape2)
+'%!in%' <- function(x,y)!('%in%'(x,y))
+```
+
+*Data Preparation for Use in this Script*
+
+A.For this Funciton a metabolite/Protein/Gene matrix in which:
+1. the metabolites/genes/protein are given in the first Column
+2. Measurements for each sample as given in following columns
+3. All Factors for each sample are separated with an underscore
+
+an example is given below
+
+Symbol		BXD1_HF_Mouse_1			BXD2_HF_Mouse_2			BXD1_HF_Mouse_3
+Gene 1		12341					1243					1234
+Gene 2		134						134						1234
+Gene 3		1243					1243					1243
+
+*IMPORTANT*
+the word "Symbol" must be in the cell 
+of column 1 row 1
+
+*The Use must define the following*
+1. Which of the factors encoded by the underscores is the strain
+	(in this case it is strain_factor = 1 because the first factor is strain (BXD1)
+
+2. Can import a dataframe that is formatted as above or a csv
+	if a csv use data.type = "csv" and 
+	define the file.location = "./path/to/file"
+
+3.Which Gene Network Format is required (either can be uploaded to GeneNetwork without a problem)
+	a. format = "row" - the strains are in the first row with the next rows containing the proteins/genes
+	b. format = "col" - the strain are given down the first column and the proteins measured in the columns
+
+
+```{r Gene Network Input, message=FALSE, warning=FALSE}
+
+GeneNetwork_input <- function(data, data.type = "csv", data.location, format = "row",
+							  strain_factor = 1, output.file) {
+
+    if (data.type == "csv") {
+        inputMatrix <- read.csv(file = data.location, header = TRUE)
+    }
+
+    if (data.type == "df") {
+        inputMatrix <- read.csv(data , header = TRUE)
+    }
+
+inputMatrix.melt <- melt(inputMatrix, id.vars = c("Symbol"))
+
+require(data.table)
+inputMatrix.dt <- data.table(inputMatrix.melt, key = "Symbol")
+input_dataframe <- as.data.frame(inputMatrix.dt[, head(.SD, 3), by = c("Symbol", "variable")])
+
+input_dataframe[, 1] <- as.character(input_dataframe[, 1])
+input_dataframe[, 2] <- as.character(input_dataframe[, 2])
+input_dataframe[, 3] <- as.numeric(input_dataframe[, 3])
+input_dataframe <- na.omit(input_dataframe)
+
+
+
+library(stringr)
+
+n_factor <- str_count(pattern = "_", string = input_dataframe[1, "variable"])
+
+print(paste("There are ", n_factor, " factors encoded with Underscores"))
+print("Assuming First Factor is Strain")
+
+    strain.names <- str_split_fixed(input_dataframe$variable, "_", n = 2)[, strain_factor]
+input_dataframe$variable <- strain.names
+
+aggres <- input_dataframe %>%
+          group_by(Symbol, variable) %>%
+          summarize(values = mean(value))
+
+aggres <- aggres %>% filter(variable %!in% "MIX")
+
+colnames(aggres) <- c("Symbol", "variable", "value")
+
+    if (format == "row") {
+        gene.network.row <- dcast(aggres, formula = Symbol ~ variable, value.var = "value")
+        colnames(gene.network.row) <- gsub(colnames(gene.network.row),
+                                   pattern = colnames(gene.network.row[1]),
+                                   replacement = "@format=row")
+
+        #Fix Strain names, need to convert . to forward slash 
+        #because R converts / into .
+
+        colnames(gene.network.row) <- gsub(colnames(gene.network.row),
+                                   pattern = ".", replacement = "/", fixed = TRUE)
+
+        write.table(gene.network.row,
+        file = paste(as.character(output.file), "gene.network.row.txt", sep = ""),
+		row.names = F, quote = F)
+    }
+
+
+    if (format == "col") {
+
+        gene.network.col <- dcast(aggres, formula = variable ~ Symbol, value.var = "value")
+
+        #Fix Strain names, need to convert . to forward slash 
+        #because R converts / into .
+
+        gene.network.col$variable <- gsub(gene.network.col$variable,
+                                   pattern = ".", replacement = "/", fixed = TRUE)
+
+		colnames(gene.network.col) <- gsub(colnames(gene.network.col),
+                                   pattern = colnames(gene.network.col[1]),
+                                   replacement = "@format=column")
+
+        write.table(gene.network.col,
+        file = paste(as.character(output.file), "gene.network.row.txt", sep = ""),
+		row.names = F, quote = F)
+
+    }
+
+
+}
+
+```
+
+
+
+To generate the file
+
+```{r}
+GeneNetwork_input(data.type = "csv",
+                  data.location = "2.Trimmed_Row.csv",
+                  output.file = "Evan")
+ 
+GeneNetwork_input(data.type = "csv",
+                  data.location = "2.Trimmed_Row.csv",
+                  output.file = "Evan_Column",
+                                                       format = "col")
+```
+
+
+

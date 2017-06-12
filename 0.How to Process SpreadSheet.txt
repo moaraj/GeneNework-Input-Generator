@@ -1,0 +1,9 @@
+1. Remove first columns keeping only gene name
+2. Remove one of two rows, keeping only the one that contains strain names and other factors 
+separated with underscores
+
+ie. BXD12_HF_F_12321
+
+3. Ensure the top left cell
+row 1, column 1 contains the text "Symbol"
+
