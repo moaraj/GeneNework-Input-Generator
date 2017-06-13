@@ -134,7 +134,7 @@ To generate the file
 ```{r}
 GeneNetwork_input(data.type = "csv",
                   data.location = "2.Trimmed_Row.csv",
-                  output.file = "Evan")
+                  output.file = "Evan_Row")
  
 GeneNetwork_input(data.type = "csv",
                   data.location = "2.Trimmed_Row.csv",
